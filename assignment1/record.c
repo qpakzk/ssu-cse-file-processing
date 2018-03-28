@@ -9,17 +9,6 @@
 
 #define SIZE 200
 
-typedef struct _Record
-{
-	char id[10];
-	char name[20];
-	char address[50];
-	char univ[20];
-	char dept[30];
-	char others[70];
-
-} Record;
-
 void input(char *in) {
 	int ch;
 
@@ -32,19 +21,10 @@ void input(char *in) {
 
 int main(int argc, char **argv)
 {
+	const char *filename = "student.dat";
 	int fd;
 	int num;
-	Record record;
 	Student st, *student;
-	const char *filename = "student.dat";
-
-	unsigned size_id = sizeof(record.id),
-			 size_name = sizeof(record.name),
-			 size_address = sizeof(record.address),
-			 size_univ = sizeof(record.univ),
-			 size_dept = sizeof(record.dept),
-			 size_others = sizeof(record.others);
-	
 	int i;
 
 	if(argc != 2) {
@@ -63,39 +43,36 @@ int main(int argc, char **argv)
 	
 	for(i = 0; i < num; i++) {
 		memset(&st, 0, sizeof(Student));
-		memset(&record, 0, sizeof(Record));
 
 		printf("Input student's id : ");
 		input(st.id);
-		strncpy(record.id, st.id, size_id);
+		write(fd, st.id, sizeof(st.id) - 1);
 
 		printf("Input student's name : ");
 		input(st.name);
-		strncpy(record.name, st.name, size_name);
+		write(fd, st.name, sizeof(st.name) - 1);
 
 		printf("Input student's address : ");
 		input(st.address);
-		strncpy(record.address, st.address, size_address);
+		write(fd, st.address, sizeof(st.address) - 1);
 
 		printf("Input student's university : ");
 		input(st.univ);
-		strncpy(record.univ, st.univ, size_univ);
+		write(fd, st.univ, sizeof(st.univ) - 1);
 
 		printf("Input student's department : ");
 		input(st.dept);
-		strncpy(record.dept, st.dept, size_dept);
+		write(fd, st.dept, sizeof(st.dept) - 1);
 
 		printf("Input others : ");
 		input(st.others);
-		strncpy(record.others, st.others, size_others);
-
-		write(fd, &record, SIZE);
+		write(fd, st.others, sizeof(st.others) - 1);
 	}
 	
 	close(fd);
 
 	if((fd = open(filename, O_RDONLY)) < 0) {
-		fprintf(stderr, "open error for %s\n", filename);
+		fprintf(stderr, "open() error for %s\n", filename);
 		exit(1);
 	}	
 	
@@ -103,18 +80,14 @@ int main(int argc, char **argv)
 	lseek(fd, -SIZE * num, SEEK_END);
 
 	for(i = 0; i < num; i++) {
-		memset(&record, 0, sizeof(Record));
-		read(fd, &record, SIZE);
-
-		strncpy(student[i].id, record.id, size_id);
-		strncpy(student[i].name, record.name, size_name);
-		strncpy(student[i].address, record.address, size_address);
-		strncpy(student[i].univ, record.univ, size_univ);
-		strncpy(student[i].dept, record.dept, size_dept);
-		strncpy(student[i].others, record.others, size_others);
+		read(fd, student[i].id, sizeof(student[i].id) - 1);
+		read(fd, student[i].name, sizeof(student[i].name) - 1);
+		read(fd, student[i].address, sizeof(student[i].address) - 1);
+		read(fd, student[i].univ, sizeof(student[i].univ) - 1);
+		read(fd, student[i].dept, sizeof(student[i].dept) - 1);
+		read(fd, student[i].others, sizeof(student[i].others) - 1);
 	}
-
-	printf("\n");
+printf("\n");
 	for(i = 0; i < num; i++) {
 		printf("id =>  %s\n", student[i].id);
 		printf("name =>  %s\n", student[i].name);
