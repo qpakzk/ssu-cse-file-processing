@@ -9,6 +9,7 @@
 
 #define SIZE 200
 
+//read, write 시 record를 200바이트 맞춰줌
 typedef struct _Record
 {
 	char id[10];
@@ -20,6 +21,7 @@ typedef struct _Record
 
 } Record;
 
+//표준 입력 함수, 입력의 최대 크기 제한 설정
 void input(char *in, unsigned max_sz) {
 	int ch;
 	unsigned cnt = 0;
@@ -70,6 +72,9 @@ int main(int argc, char **argv)
 	}
 
 	lseek(fd, 0, SEEK_END);
+	
+	//st로 입력받은 후 record로 write할 데이터를 저장
+	//200바이트로 한꺼번에 write 수행하여 I/O 횟수를 최소화
 	for(i = 0; i < num; i++) {
 		memset(&st, 0, sizeof(Student));
 		memset(&record, 0, sizeof(Record));
@@ -114,6 +119,8 @@ int main(int argc, char **argv)
 	student = (Student *)calloc(num, sizeof(Student));
 	lseek(fd, -SIZE * num, SEEK_END);
 
+	//200바이트로 한꺼번에 read 수행하여 I/O 횟수를 최소화
+	//record로 받은 데이터를 student에 저장
 	for(i = 0; i < num; i++) {
 		memset(&record, 0, sizeof(Record));
 		read(fd, &record, SIZE);
@@ -126,6 +133,7 @@ int main(int argc, char **argv)
 		strncpy(student[i].others, record.others, sz_others);
 	}
 
+	//read한 record 데이터 출력
 	printf("\nRead and print recently stored records in %s\n", filename);
 	for(i = 0; i < num; i++) {
 		printf("Data in Record %d\n", total_record_cnt - num + 1 + i);
