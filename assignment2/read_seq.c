@@ -8,17 +8,7 @@
 #include <unistd.h>
 #include "record.h"
 
-#define SIZE 200
-
-typedef struct _Record {
-	char id[10];
-	char name[20];
-	char addr[50];
-	char univ[20];
-	char dept[30];
-	char others[70];
-
-} Record;
+#define RECORD_SIZE 200
 
 void input(char *in, unsigned max_sz) {
 	int ch;
@@ -42,7 +32,8 @@ void input(char *in, unsigned max_sz) {
 
 int main(int argc, char **argv) {
 	int fd;
-	int num;
+	int num_of_records;
+	Student st;
 	Record record;
 	const char *filename = "student.dat";
 
@@ -61,26 +52,38 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	num = atoi(argv[1]);
+	num_of_records = atoi(argv[1]);
 
 	if((fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) {
 		fprintf(stderr, "open() error for %s\n", filename);
 		exit(1);
 	}
 
-	lseek(fd, 0, SEEK_SET);
+	lseek(fd, (off_t) 0, SEEK_SET);
 	
-	for(i = 0; i < num; i++) {
+	for(i = 0; i < num_of_records; i++) {
+		memset(&st, 0, sizeof(Student));
 		memset(&record, 0, sizeof(Record));
+		
+		input(st.id, sz_id);
+		strncpy(record.id, st.id, sz_id);
 
-		input(record.id, sz_id);
-		input(record.name, sz_name);
-		input(record.addr, sz_addr);
-		input(record.univ, sz_univ);
-		input(record.dept, sz_dept);
-		input(record.others, sz_others);
+		input(st.name, sz_name);
+		strncpy(record.name, st.name, sz_name);
 
-		write(fd, &record, SIZE);
+		input(st.address, sz_addr);
+		strncpy(record.addr, st.address, sz_addr);
+
+		input(st.univ, sz_univ);
+		strncpy(record.univ, st.univ, sz_univ);
+
+		input(st.dept, sz_dept);
+		strncpy(record.dept, st.dept, sz_dept);
+		
+		input(st.others, sz_others);
+		strncpy(record.others, st.others, sz_others);
+
+		write(fd, &record, RECORD_SIZE);
 	}
 
 	close(fd);
@@ -93,8 +96,8 @@ int main(int argc, char **argv) {
 	lseek(fd, (off_t) 0, SEEK_SET);
 
 	gettimeofday(&start_val, NULL);	
-	for(i = 0; i < num; i++)
-		read(fd, &record, SIZE);
+	for(i = 0; i < num_of_records; i++)
+		read(fd, &record, RECORD_SIZE);
 	gettimeofday(&end_val, NULL);
 	
 	start_time = start_val.tv_sec * 1000000 + start_val.tv_usec;
