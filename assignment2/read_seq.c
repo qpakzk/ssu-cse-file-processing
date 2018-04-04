@@ -1,5 +1,108 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <string.h>
+#include <unistd.h>
+#include "record.h"
+
+#define SIZE 200
+
+typedef struct _Record {
+	char id[10];
+	char name[20];
+	char addr[50];
+	char univ[20];
+	char dept[30];
+	char others[70];
+
+} Record;
+
+void input(char *in, unsigned max_sz) {
+	int ch;
+	unsigned cnt = 0;
+
+	while(1) {
+		ch = getchar();
+		if(ch == '\n') {
+			if(cnt > max_sz) {
+				fprintf(stderr, "ERROR: Exceed the maximun size of input\n");
+				exit(1);
+			}
+			*in = 0;
+			return;
+		}
+		cnt++;
+		*in = ch;
+		in++;
+	}
+}
 
 int main(int argc, char **argv) {
+	int fd;
+	int num;
+	Record record;
+	const char *filename = "student.dat";
+
+	unsigned sz_id = sizeof(record.id),
+			 sz_name = sizeof(record.name),
+			 sz_addr = sizeof(record.addr),
+			 sz_univ = sizeof(record.univ),
+			 sz_dept = sizeof(record.dept),
+			 sz_others = sizeof(record.others);
+	int i;
+	time_t start_time, end_time, elapsed_time;
+	struct timeval start_val, end_val;
+
+	if(argc != 2) {
+		fprintf(stderr, "usage: %s [ RECORD_COUNT ]\n", argv[0]);
+		exit(1);
+	}
+
+	num = atoi(argv[1]);
+
+	if((fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) {
+		fprintf(stderr, "open() error for %s\n", filename);
+		exit(1);
+	}
+
+	lseek(fd, 0, SEEK_SET);
+	
+	for(i = 0; i < num; i++) {
+		memset(&record, 0, sizeof(Record));
+
+		input(record.id, sz_id);
+		input(record.name, sz_name);
+		input(record.addr, sz_addr);
+		input(record.univ, sz_univ);
+		input(record.dept, sz_dept);
+		input(record.others, sz_others);
+
+		write(fd, &record, SIZE);
+	}
+
+	close(fd);
+
+	if((fd = open(filename, O_RDONLY)) < 0) {
+		fprintf(stderr, "open error for %s\n", filename);
+		exit(1);
+	}	
+
+	lseek(fd, (off_t) 0, SEEK_SET);
+
+	gettimeofday(&start_val, NULL);	
+	for(i = 0; i < num; i++)
+		read(fd, &record, SIZE);
+	gettimeofday(&end_val, NULL);
+	
+	start_time = start_val.tv_sec * 1000000 + start_val.tv_usec;
+	end_time = end_val.tv_sec * 1000000 + end_val.tv_usec;
+	elapsed_time = end_time - start_time;
+
+	printf("elasped_time: %ld us\n", elapsed_time);
+
+	close(fd);
 	return 0;
 }
