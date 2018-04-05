@@ -11,13 +11,4 @@ typedef struct _Student
 	char others[71];
 } Student;
 
-typedef struct _Record {
-    char id[10];
-    char name[20];
-    char addr[50];
-    char univ[20];
-    char dept[30];
-    char others[70];
-    
-} Record;
 #endif
