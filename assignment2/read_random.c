@@ -6,10 +6,18 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "record.h"
 
 #define SUFFLE_NUM	10000
 #define RECORD_SIZE 200
+
+typedef struct _Record {
+    char id[10];
+    char name[20];
+    char addr[50];
+    char univ[20];
+    char dept[30];
+    char others[70];
+} Record;
 
 void GenRecordSequence(int *list, int n);
 void swap(int *a, int *b);
@@ -23,7 +31,7 @@ int main(int argc, char **argv) {
 	int nth_record;
 	int i;
 	struct timeval start_val, end_val;
-	time_t start_time, end_time;
+	time_t start_time, end_time, elapsed_time;
 
 	if(argc != 2) {
 		fprintf(stderr, "usage: %s [ RECORD_COUNT ]\n", argv[0]);
@@ -39,23 +47,27 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
+	gettimeofday(&start_val, NULL);
 	for(i = 0; i < num_of_records; i++) {
 		nth_record = read_order_list[i];	
 		lseek(fd, (off_t) nth_record * RECORD_SIZE, SEEK_SET);
 		read(fd, &record, RECORD_SIZE);
-		printf("%s\n", record.id);
-		printf("%s\n", record.name);
-		printf("%s\n", record.addr);
-		printf("%s\n", record.univ);
-		printf("%s\n", record.dept);
-		printf("%s\n", record.others);
 	}
+	gettimeofday(&end_val, NULL);
 			
+	start_time = start_val.tv_sec * 1000000 + start_val.tv_usec;
+	end_time = end_val.tv_sec * 1000000 + end_val.tv_usec;
+	elapsed_time = end_time - start_time;
+
+	printf("elapsed_time: %ld us\n", elapsed_time);
+
+	close(fd);
 	free(read_order_list);
 	return 0;
 }
 
-void GenRecordSequence(int *list, int n) {
+void GenRecordSequence(int *list, int n) 
+{
 	int i, j, k;
 
 	srand((unsigned int)time(0));
@@ -73,7 +85,8 @@ void GenRecordSequence(int *list, int n) {
 	return;
 }
 
-void swap(int *a, int *b) {
+void swap(int *a, int *b) 
+{
 	int tmp;
 
 	tmp = *a;
