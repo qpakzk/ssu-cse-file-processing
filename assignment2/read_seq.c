@@ -22,7 +22,6 @@ int main(int argc, char **argv)
 {
 	int fd;
 	int num_of_records;
-	Student st;
 	Record record;
 	const char *filename = "student.dat";
 
