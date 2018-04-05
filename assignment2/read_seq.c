@@ -4,33 +4,22 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <string.h>
 #include <unistd.h>
 #include "record.h"
 
 #define RECORD_SIZE 200
 
-void input(char *in, unsigned max_sz) {
-	int ch;
-	unsigned cnt = 0;
+typedef struct _Record {
+    char id[10];
+    char name[20];
+    char addr[50];
+    char univ[20];
+    char dept[30];
+    char others[70];
+} Record;
 
-	while(1) {
-		ch = getchar();
-		if(ch == '\n') {
-			if(cnt > max_sz) {
-				fprintf(stderr, "ERROR: Exceed the maximun size of input\n");
-				exit(1);
-			}
-			*in = 0;
-			return;
-		}
-		cnt++;
-		*in = ch;
-		in++;
-	}
-}
-
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
 	int fd;
 	int num_of_records;
 	Student st;
@@ -54,40 +43,6 @@ int main(int argc, char **argv) {
 
 	num_of_records = atoi(argv[1]);
 
-	if((fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) {
-		fprintf(stderr, "open() error for %s\n", filename);
-		exit(1);
-	}
-
-	lseek(fd, (off_t) 0, SEEK_SET);
-	
-	for(i = 0; i < num_of_records; i++) {
-		memset(&st, 0, sizeof(Student));
-		memset(&record, 0, sizeof(Record));
-		
-		input(st.id, sz_id);
-		strncpy(record.id, st.id, sz_id);
-
-		input(st.name, sz_name);
-		strncpy(record.name, st.name, sz_name);
-
-		input(st.address, sz_addr);
-		strncpy(record.addr, st.address, sz_addr);
-
-		input(st.univ, sz_univ);
-		strncpy(record.univ, st.univ, sz_univ);
-
-		input(st.dept, sz_dept);
-		strncpy(record.dept, st.dept, sz_dept);
-		
-		input(st.others, sz_others);
-		strncpy(record.others, st.others, sz_others);
-
-		write(fd, &record, RECORD_SIZE);
-	}
-
-	close(fd);
-
 	if((fd = open(filename, O_RDONLY)) < 0) {
 		fprintf(stderr, "open error for %s\n", filename);
 		exit(1);
@@ -103,7 +58,7 @@ int main(int argc, char **argv) {
 	start_time = start_val.tv_sec * 1000000 + start_val.tv_usec;
 	end_time = end_val.tv_sec * 1000000 + end_val.tv_usec;
 	elapsed_time = end_time - start_time;
-
+	
 	printf("elasped_time: %ld us\n", elapsed_time);
 
 	close(fd);
