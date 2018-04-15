@@ -12,10 +12,10 @@
 BlockMapTbl blkmaptbl;
 FILE *devicefp;
 
-int backup_blk = BLOCK_PER_DEVICE - 1;
-bool pbn_flag[BLOCK_PER_DEVICE];
+int backup_blk = BLOCKS_PER_DEVICE - 1;
+bool pbn_flag[BLOCKS_PER_DEVICE];
 
-typdef struct {
+typedef struct {
 	char sector_area[SECTOR_SIZE * SECTORS_PER_PAGE];
 	SpareData spare_area;
 } PageData;
@@ -48,10 +48,11 @@ void ftl_open()
 	//
 	// 추가적으로 필요한 작업이 있으면 수행할 것
 	//
-	memset(pbn_flag, false, sizeof(pbn_table));
+	memset(pbn_flag, false, sizeof(pbn_flag));
 	return;
 }
 
+/*
 bool is_full() {
 	int i;
 	for(i = 0; i < BLOCKS_PER_DEVICE; i++) {
@@ -71,7 +72,7 @@ bool have_invalids() {
 		if(i == backup_blk)
 			continue;
 
-		if(pbn_table[i].num_of_invalids) 
+		if(pbn_flag[i].num_of_invalids) 
 			return true;
 	}
 	
@@ -114,14 +115,13 @@ void copy_valid_pages(int pbn) {
 void erase_block() {
 
 }
-
+*/
 void ftl_write(int lsn, char *sectorbuf)
 {
 	int lbn = lsn / BLOCK_SIZE;
 	int i, j;
-	int pbn;
 	int ppn;
-	int tmp;
+	bool has_same_lsn;
 	PageData pagebuf;
 /*
 	if(is_full()) {
@@ -137,9 +137,10 @@ void ftl_write(int lsn, char *sectorbuf)
 	else */
 
 	memset((char *)&pagebuf, 0, sizeof(PageData));
+	has_same_lsn = false;
 
 	if(blkmaptbl.entry[lbn].pbn == -1) {
-		for(i = 0; i < BLOCKS_PER_PER_DEVICE; i++) {
+		for(i = 0; i < BLOCKS_PER_DEVICE; i++) {
 			if(!pbn_flag[i]) {
 				if(i == backup_blk)
 					continue;
@@ -153,16 +154,33 @@ void ftl_write(int lsn, char *sectorbuf)
 				pagebuf.spare_area.invalid = -1;	
 				
 				ppn = (blkmaptbl.entry[lbn].first_free_page_offset - 1) + BLOCK_SIZE * blkmaptbl.entry[lbn].pbn;
-				dd_write(ppn, pagebuf);
+				dd_write(ppn, (char *)&pagebuf);
 				break;
 			}
 		}
 	}
-	/*
 	else if(blkmaptbl.entry[lbn].first_free_page_offset < PAGES_PER_BLOCK) {
-		//
+		for(i = 0; i < blkmaptbl.entry[lbn].first_free_page_offset; i++) {
+			ppn = i + BLOCK_SIZE * blkmaptbl.entry[lbn].pbn;
+			dd_read(ppn, (char *)&pagebuf);
+			if(pagebuf.spare_area.invalid == -1) {
+				pagebuf.spare_area.invalid = 1;
+				break;
+			}
+
+			
+		}
 		blkmaptbl.entry[lbn].first_free_page_offset++;
+		
+		strncpy(pagebuf.sector_area, sectorbuf, SECTOR_SIZE * SECTORS_PER_PAGE);
+		pagebuf.spare_area.lsn = lsn;
+		pagebuf.spare_area.invalid = -1;	
+			
+		memset((char *)&pagebuf, 0, sizeof(PageData));
+		ppn = (blkmaptbl.entry[lbn].first_free_page_offset - 1) + BLOCK_SIZE * blkmaptbl.entry[lbn].pbn;
+		dd_write(ppn, (char *)&pagebuf);
 	}
+	/*
 	else {
 		for(i = 0; i < DATABLKS_PER_DEVICE; i++) {
 			if() {
