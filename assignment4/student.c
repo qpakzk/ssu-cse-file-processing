@@ -5,7 +5,7 @@
 #include "student.h"
 
 typedef struct _Node {
-	int rrn;
+	short rrn;
 	struct _Node *next;
 } Node;
 
@@ -17,6 +17,9 @@ typedef struct _Header {
 const char *filename;
 Node *head;
 
+void set_linked_list(FILE *fp);
+void insert_to_tail(Node *tail, short rrn);
+
 short convert_to_short(char *header);
 Header read_header(FILE *fp);
 void write_header(FILE *fp, Header *header);
@@ -26,12 +29,14 @@ STUDENT store_student(char *argv[]);
 void pack(char *recordbuf, const STUDENT *s);
 void unpack(const char *recordbuf, STUDENT *s);
 void read(FILE *fp, char *recordbuf, int rrn);
-void read_keyval(FILE *fp, char *keyval, int rrn);
+void read_keyval(FILE *fp, char *keyval, short rrn);
 int find_keyval(FILE *fp, const char *keyval);
 void add(FILE *fp, const STUDENT *s);
 int search(FILE *fp, const char *keyval);
 void delete(FILE *fp, const char *keyval);
 void printRecord(const STUDENT *s, int n);
+void retrieve_list(FILE *fp);
+void retrieveAllRecords(FILE *fp);
 
 int main(int argc, char *argv[])
 {
@@ -67,11 +72,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "open error for %s\n", filename);
 		exit(1);
 	}
-	
-	if(argc < 3) {
-		fprintf(stderr, "Usage: %s {-a|-s|-d} %s field_value1 [...]\n", argv[0], filename);
-		exit(1);
-	}
+	set_linked_list(fp);
+	retrieve_list(fp);
+	retrieveAllRecords(fp);
 
 	if(!strcmp(argv[1], "-a")) {
 		if(argc != 10) {
@@ -107,6 +110,44 @@ int main(int argc, char *argv[])
 	fp = NULL;
 
 	return 1;
+}
+
+void set_linked_list(FILE *fp) {
+	Header header;
+	short rrn;
+	char recordbuf[RECORD_SIZE];
+	Node *tail;
+	
+	header = read_header(fp);
+	rrn = header.head_num;
+	if(rrn == -1)
+		head = tail = NULL;
+	else {
+		memset(recordbuf, 0x00, RECORD_SIZE);
+		read(fp, recordbuf, rrn);
+		rrn = convert_to_short(&recordbuf[1]);	
+		head = (Node *)malloc(sizeof(Node));
+		head->rrn = rrn;
+		head->next = NULL;
+		tail = head;
+
+		while(rrn != -1) {
+			memset(recordbuf, 0x00, RECORD_SIZE);
+			read(fp, recordbuf, rrn);
+			rrn = convert_to_short(&recordbuf[1]);	
+			insert_to_tail(tail, rrn);
+		}
+		tail = NULL;
+	}
+}
+
+void insert_to_tail(Node *tail, short rrn)
+{
+	Node *newNode = (Node *)malloc(sizeof(Node));
+	newNode->rrn = rrn;
+	newNode->next = NULL;
+	tail->next = newNode;	
+	tail = tail->next;
 }
 
 short convert_to_short(char *buf)
@@ -240,7 +281,7 @@ void read(FILE *fp, char *recordbuf, int rrn)
 	fread(recordbuf, 1, RECORD_SIZE, fp);
 }
 
-void read_keyval(FILE *fp, char *keyval, int rrn) {
+void read_keyval(FILE *fp, char *keyval, short rrn) {
 	fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET);
 	memset(keyval, 0x00, ID_SIZE);
 	fread(keyval, 1, ID_SIZE, fp);
@@ -268,14 +309,19 @@ int find_keyval(FILE *fp, const char *keyval)
 void add(FILE *fp, const STUDENT *s)
 {
 	char recordbuf[RECORD_SIZE];
+	Header header;
 	if(find_keyval(fp, s->id) != -1) {
 		fprintf(stderr, "ID %s duplicates in %s.\n", s->id, filename);
 		exit(1);	
 	}
 	pack(recordbuf, s);
-
+	
 	fseek(fp, 0, SEEK_END);
 	fwrite(recordbuf, 1, RECORD_SIZE, fp);
+
+	header = read_header(fp);
+	header.num_of_records++;
+	write_header(fp, &header);
 }
 
 int search(FILE *fp, const char *keyval)
@@ -296,22 +342,86 @@ int search(FILE *fp, const char *keyval)
 	return rrn;
 }
 
+void list_to_head(Node *head, short rrn)
+{
+	Node *newNode = (Node *)malloc(sizeof(Node));
+	newNode->rrn = rrn;
+	newNode->next = head;
+	head = newNode;
+}
 void delete(FILE *fp, const char *keyval)
 {
 	STUDENT student;
 	char recordbuf[RECORD_SIZE];
-	int rrn;
+	short rrn;
+	Header header;
 
 	if((rrn = find_keyval(fp, keyval)) == -1) {
 		fprintf(stderr, "There is no ID %s in %s.\n", keyval, filename);
 		exit(1);
 	}
-
-	memset(recordbuf, 0x00, RECORD_SIZE);
-	recordbuf[0] = '*';
 	
+	header = read_header(fp);
+	memset(recordbuf, 0x00, RECORD_SIZE);
+	printf("(In delete) head_num = %d\n", header.head_num);
+	recordbuf[0] = '*';
+	recordbuf[1] = header.head_num & 0xFF;
+	recordbuf[2] = (header.head_num >> 2) & 0xFF;
+		
 	fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET);
 	fwrite(recordbuf, RECORD_SIZE, 1, fp);
+
+	header.num_of_records--;
+	header.head_num = rrn;
+	write_header(fp, &header);
+
+	list_to_head(head, rrn);
+}
+
+void retrieve_list(FILE *fp)
+{
+	Header header;
+	Node *temp;
+
+	header = read_header(fp);
+	printf(">> Header Information <<\n");
+	printf("Number of Records = %d\n", header.num_of_records);
+	printf("Head Number = %d\n", header.head_num);
+
+	printf(">> Linked List BEGIN <<\n");
+	temp = head;
+	while(temp != NULL) {
+		printf("RRN = %d\n", temp->rrn);	
+		temp = temp->next;
+	}	
+	printf(">> Linked List END <<\n");
+}
+
+void retrieveAllRecords(FILE *fp) {
+	int fsize;
+	int record_count;
+	int i;
+	char recordbuf[RECORD_SIZE];
+	short rrn;
+	
+	fseek(fp, 0, SEEK_END);
+	fsize = ftell(fp);
+
+	record_count = (fsize - HEADER_SIZE) / RECORD_SIZE;
+	
+	printf(">> Begin to retrieve all records <<\n");
+	for(i = 0; i < record_count; i++) {
+		memset(recordbuf, 0x00, RECORD_SIZE);
+		read(fp, recordbuf, i);
+		if(recordbuf[0] == '*') {
+			rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
+			printf("record %d : %c%d\n", i, recordbuf[0], rrn);
+		}
+		else
+			printf("record %d : %s\n", i, recordbuf);
+	}
+
+	printf(">> End to retrieve all records <<\n");
 }
 
 void printRecord(const STUDENT *s, int n)
