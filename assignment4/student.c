@@ -102,8 +102,8 @@ int main(int argc, char *argv[])
 		memcpy(keyval, argv[3], ID_SIZE);
 		delete(fp, keyval);
 	}
-	retrieve_list(fp);
-	retrieveAllRecords(fp);
+	//retrieve_list(fp);
+	//retrieveAllRecords(fp);
 
 	fclose(fp);
 	fp = NULL;
