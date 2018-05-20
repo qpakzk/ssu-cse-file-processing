@@ -18,9 +18,7 @@ const char *filename;
 Node *head;
 
 void set_linked_list(FILE *fp);
-void insert_to_tail(Node *tail, short rrn);
 
-short convert_to_short(char *header);
 Header read_header(FILE *fp);
 void write_header(FILE *fp, Header *header);
 
@@ -29,13 +27,13 @@ STUDENT store_student(char *argv[]);
 void pack(char *recordbuf, const STUDENT *s);
 void unpack(const char *recordbuf, STUDENT *s);
 void read(FILE *fp, char *recordbuf, int rrn);
-void read_keyval(FILE *fp, char *keyval, short rrn);
 int find_keyval(FILE *fp, const char *keyval);
 void remove_node(Header *header);
 void add(FILE *fp, const STUDENT *s);
 int search(FILE *fp, const char *keyval);
 void delete(FILE *fp, const char *keyval);
 void printRecord(const STUDENT *s, int n);
+void retrieve_list(FILE *fp);
 void retrieve_list(FILE *fp);
 void retrieveAllRecords(FILE *fp);
 
@@ -74,8 +72,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	set_linked_list(fp);
-	retrieve_list(fp);
-	retrieveAllRecords(fp);
 
 	if(!strcmp(argv[1], "-a")) {
 		if(argc != 10) {
@@ -106,6 +102,8 @@ int main(int argc, char *argv[])
 		memcpy(keyval, argv[3], ID_SIZE);
 		delete(fp, keyval);
 	}
+	retrieve_list(fp);
+	retrieveAllRecords(fp);
 
 	fclose(fp);
 	fp = NULL;
@@ -118,6 +116,7 @@ void set_linked_list(FILE *fp) {
 	short rrn;
 	char recordbuf[RECORD_SIZE];
 	Node *tail;
+	Node *newNode;
 	
 	header = read_header(fp);
 	rrn = header.head_num;
@@ -126,34 +125,22 @@ void set_linked_list(FILE *fp) {
 	else {
 		memset(recordbuf, 0x00, RECORD_SIZE);
 		read(fp, recordbuf, rrn);
-		rrn = convert_to_short(&recordbuf[1]);	
+		rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
 		head = (Node *)malloc(sizeof(Node));
 		head->rrn = rrn;
 		head->next = NULL;
 		tail = head;
-
 		while(rrn != -1) {
 			memset(recordbuf, 0x00, RECORD_SIZE);
 			read(fp, recordbuf, rrn);
-			rrn = convert_to_short(&recordbuf[1]);	
-			insert_to_tail(tail, rrn);
+			rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
+			newNode = (Node *)malloc(sizeof(Node));
+			newNode->rrn = rrn;
+			newNode->next = NULL;
+			tail->next = newNode;	
+			tail = newNode;
 		}
-		tail = NULL;
 	}
-}
-
-void insert_to_tail(Node *tail, short rrn)
-{
-	Node *newNode = (Node *)malloc(sizeof(Node));
-	newNode->rrn = rrn;
-	newNode->next = NULL;
-	tail->next = newNode;	
-	tail = tail->next;
-}
-
-short convert_to_short(char *buf)
-{
-	return (buf[0] & 0xFF) + ((buf[1] << 2) & 0xFF00);
 }
 
 Header read_header(FILE *fp)
@@ -163,8 +150,8 @@ Header read_header(FILE *fp)
 
 	fseek(fp, 0, SEEK_SET);
 	fread(headerbuf, 1, HEADER_SIZE, fp);
-	header.num_of_records = convert_to_short(&headerbuf[0]);
-	header.head_num = convert_to_short(&headerbuf[2]);
+	header.num_of_records = (headerbuf[0] & 0xFF) + ((headerbuf[1] << 2) & 0xFF00);
+	header.head_num = (headerbuf[2] & 0xFF) + ((headerbuf[3] << 2) & 0xFF00);
 
 	return header;
 }
@@ -282,12 +269,6 @@ void read(FILE *fp, char *recordbuf, int rrn)
 	fread(recordbuf, 1, RECORD_SIZE, fp);
 }
 
-void read_keyval(FILE *fp, char *keyval, short rrn) {
-	fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET);
-	memset(keyval, 0x00, ID_SIZE);
-	fread(keyval, 1, ID_SIZE, fp);
-}
-
 int find_keyval(FILE *fp, const char *keyval)
 {
 	char id[ID_SIZE + 1];
@@ -298,8 +279,11 @@ int find_keyval(FILE *fp, const char *keyval)
 	fseek(fp, 0, SEEK_END);	
 	file_size = ftell(fp);
 	count_record = (file_size - HEADER_SIZE) / RECORD_SIZE;
+	memset(id, 0x00, ID_SIZE + 1);
 	for(i = 0; i < count_record; i++) {
-		read_keyval(fp, id, i);
+		memset(id, 0x00, ID_SIZE + 1);
+		fseek(fp, HEADER_SIZE + RECORD_SIZE * i, SEEK_SET);
+		fread(id, 1, ID_SIZE, fp);
 		if(!strcmp(keyval, id)) {
 			return i;
 		}
@@ -361,19 +345,12 @@ int search(FILE *fp, const char *keyval)
 	return rrn;
 }
 
-void list_to_head(Node *head, short rrn)
-{
-	Node *newNode = (Node *)malloc(sizeof(Node));
-	newNode->rrn = rrn;
-	newNode->next = head;
-	head = newNode;
-}
-void delete(FILE *fp, const char *keyval)
-{
+void delete(FILE *fp, const char *keyval) {
 	STUDENT student;
 	char recordbuf[RECORD_SIZE];
 	short rrn;
 	Header header;
+	Node *newNode;
 
 	if((rrn = find_keyval(fp, keyval)) == -1) {
 		fprintf(stderr, "There is no ID %s in %s.\n", keyval, filename);
@@ -382,25 +359,27 @@ void delete(FILE *fp, const char *keyval)
 	
 	header = read_header(fp);
 	memset(recordbuf, 0x00, RECORD_SIZE);
-	printf("(In delete) head_num = %d\n", header.head_num);
+
 	recordbuf[0] = '*';
 	recordbuf[1] = header.head_num & 0xFF;
 	recordbuf[2] = (header.head_num >> 2) & 0xFF;
 		
-	fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET);
-	fwrite(recordbuf, RECORD_SIZE, 1, fp);
-
-	header.num_of_records--;
+	newNode = (Node *)malloc(sizeof(Node));
+	newNode->rrn = header.head_num;
 	header.head_num = rrn;
+	newNode->next = head;
+	head = newNode;
+	header.num_of_records--;
 	write_header(fp, &header);
-
-	list_to_head(head, rrn);
+	
+	fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET);
+	fwrite(recordbuf, 1, RECORD_SIZE, fp);
 }
 
-void retrieve_list(FILE *fp)
-{
+void retrieve_list(FILE *fp) {
 	Header header;
 	Node *temp;
+	int count_node = 0;
 
 	header = read_header(fp);
 	printf(">> Header Information <<\n");
@@ -409,8 +388,9 @@ void retrieve_list(FILE *fp)
 
 	printf(">> Linked List BEGIN <<\n");
 	temp = head;
+
 	while(temp != NULL) {
-		printf("RRN = %d\n", temp->rrn);	
+		printf("node %d : %d\n", count_node++, temp->rrn);	
 		temp = temp->next;
 	}	
 	printf(">> Linked List END <<\n");
