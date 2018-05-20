@@ -31,6 +31,7 @@ void unpack(const char *recordbuf, STUDENT *s);
 void read(FILE *fp, char *recordbuf, int rrn);
 void read_keyval(FILE *fp, char *keyval, short rrn);
 int find_keyval(FILE *fp, const char *keyval);
+void remove_node(Header *header);
 void add(FILE *fp, const STUDENT *s);
 int search(FILE *fp, const char *keyval);
 void delete(FILE *fp, const char *keyval);
@@ -306,20 +307,38 @@ int find_keyval(FILE *fp, const char *keyval)
 	return -1;
 }
 
+void remove_node(Header *header) {	
+	Node *temp;
+
+	header->head_num = head->rrn;
+	temp = head;
+	head = head->next;
+	free(temp);
+	temp = NULL;
+}
+
 void add(FILE *fp, const STUDENT *s)
 {
 	char recordbuf[RECORD_SIZE];
 	Header header;
+	short rrn;
+
 	if(find_keyval(fp, s->id) != -1) {
 		fprintf(stderr, "ID %s duplicates in %s.\n", s->id, filename);
 		exit(1);	
 	}
 	pack(recordbuf, s);
 	
-	fseek(fp, 0, SEEK_END);
-	fwrite(recordbuf, 1, RECORD_SIZE, fp);
-
 	header = read_header(fp);
+	if(header.head_num == -1)
+		fseek(fp, 0, SEEK_END);
+	else {
+		rrn = header.head_num;
+		remove_node(&header);
+		fseek(fp, HEADER_SIZE + RECORD_SIZE * rrn, SEEK_SET); 
+	}
+
+	fwrite(recordbuf, 1, RECORD_SIZE, fp);
 	header.num_of_records++;
 	write_header(fp, &header);
 }
