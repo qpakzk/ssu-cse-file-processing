@@ -111,10 +111,10 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}	
 	
-	headerbuf[0] = (char) ((num_of_records & 0xFF00) >> 2);
+	headerbuf[0] = (char) ((num_of_records & 0xFF00) >> 8);
 	headerbuf[1] = (char) (num_of_records & 0xFF); 
 
-	headerbuf[2] = (char) ((-1 &0xFF00) >> 2);
+	headerbuf[2] = (char) ((-1 &0xFF00) >> 8);
 	headerbuf[3] = (char) (-1 & 0xFF);
 	fseek(fp, 0, SEEK_SET);
 	fwrite(headerbuf, 1, HEADER_SIZE, fp);
