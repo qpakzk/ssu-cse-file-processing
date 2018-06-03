@@ -274,7 +274,8 @@ int find_keyval(FILE *fp, const char *keyval)
 	char id[ID_SIZE + 1];
 	int file_size;
 	int count_record;
-	int i;
+	int i, j;
+	char ch;
 	
 	fseek(fp, 0, SEEK_END);	
 	file_size = ftell(fp);
@@ -283,7 +284,17 @@ int find_keyval(FILE *fp, const char *keyval)
 	for(i = 0; i < count_record; i++) {
 		memset(id, 0x00, ID_SIZE + 1);
 		fseek(fp, HEADER_SIZE + RECORD_SIZE * i, SEEK_SET);
-		fread(id, 1, ID_SIZE, fp);
+
+		j = 0;
+		while(1) {
+			fread(&ch, 1, 1, fp);
+			if(ch == '#') {
+				id[j] = 0;
+				break;
+			}		
+			id[j++] = ch;
+		}
+
 		if(!strcmp(keyval, id)) {
 			return i;
 		}
