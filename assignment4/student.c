@@ -53,7 +53,6 @@ int main(int argc, char *argv[])
 	}
 	
 	filename = argv[2];
-
 	if((fp = fopen(filename, "r")) == NULL) {
 		header.num_of_records = 0;
 		header.head_num = -1;
@@ -125,7 +124,7 @@ void set_linked_list(FILE *fp) {
 	else {
 		memset(recordbuf, 0x00, RECORD_SIZE);
 		read(fp, recordbuf, rrn);
-		rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
+		rrn = (short) ((recordbuf[1] << 8) & 0xFF00) + (recordbuf[2] & 0xFF);
 		head = (Node *)malloc(sizeof(Node));
 		head->rrn = rrn;
 		head->next = NULL;
@@ -133,7 +132,7 @@ void set_linked_list(FILE *fp) {
 		while(rrn != -1) {
 			memset(recordbuf, 0x00, RECORD_SIZE);
 			read(fp, recordbuf, rrn);
-			rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
+			rrn = ((recordbuf[1] << 8) & 0xFF00) + (recordbuf[2] & 0xFF);
 			newNode = (Node *)malloc(sizeof(Node));
 			newNode->rrn = rrn;
 			newNode->next = NULL;
@@ -150,19 +149,18 @@ Header read_header(FILE *fp)
 
 	fseek(fp, 0, SEEK_SET);
 	fread(headerbuf, 1, HEADER_SIZE, fp);
-	header.num_of_records = (headerbuf[0] & 0xFF) + ((headerbuf[1] << 2) & 0xFF00);
-	header.head_num = (headerbuf[2] & 0xFF) + ((headerbuf[3] << 2) & 0xFF00);
-
+	header.num_of_records = ((headerbuf[0] << 8) & 0xFF00) + (headerbuf[1] & 0xFF);
+	header.head_num = ((headerbuf[2] << 8) & 0xFF00) + (headerbuf[3] & 0xFF);
 	return header;
 }
 
 void write_header(FILE *fp, Header *header)
 {
 	char headerbuf[HEADER_SIZE];
-	headerbuf[0] = header->num_of_records & 0xFF;
-   	headerbuf[1] = (header->num_of_records >> 2) & 0xFF;
-   	headerbuf[2] = header->head_num & 0xFF;
-   	headerbuf[3] = (header->head_num >> 2) & 0xFF;
+	headerbuf[0] = (header->num_of_records >> 8) & 0xFF;
+   	headerbuf[1] = header->num_of_records & 0xFF;
+   	headerbuf[2] = (header->head_num >> 8) & 0xFF;
+   	headerbuf[3] = header->head_num & 0xFF;
 	fseek(fp, 0, SEEK_SET);
 	fwrite(headerbuf, 1, HEADER_SIZE, fp);
 }
@@ -288,6 +286,8 @@ int find_keyval(FILE *fp, const char *keyval)
 		j = 0;
 		while(1) {
 			fread(&ch, 1, 1, fp);
+			if(ch == '*')
+				break;
 			if(ch == '#') {
 				id[j] = 0;
 				break;
@@ -372,8 +372,8 @@ void delete(FILE *fp, const char *keyval) {
 	memset(recordbuf, 0x00, RECORD_SIZE);
 
 	recordbuf[0] = '*';
-	recordbuf[1] = header.head_num & 0xFF;
-	recordbuf[2] = (header.head_num >> 2) & 0xFF;
+	recordbuf[1] = (header.head_num >> 8) & 0xFF;
+	recordbuf[2] = header.head_num & 0xFF;
 		
 	newNode = (Node *)malloc(sizeof(Node));
 	newNode->rrn = header.head_num;
@@ -424,7 +424,7 @@ void retrieveAllRecords(FILE *fp) {
 		memset(recordbuf, 0x00, RECORD_SIZE);
 		read(fp, recordbuf, i);
 		if(recordbuf[0] == '*') {
-			rrn = (recordbuf[1] & 0xFF) + ((recordbuf[2] << 2) & 0xFF00);
+			rrn = ((recordbuf[1] << 8) & 0xFF00) + (recordbuf[2] & 0xFF);
 			printf("record %d : %c%d\n", i, recordbuf[0], rrn);
 		}
 		else
