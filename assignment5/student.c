@@ -1,4 +1,4 @@
-#define PRINT_FOR_DEBUG
+//#define PRINT_FOR_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +25,9 @@ int main(int argc, char *argv[])
 	char outputbuf[OUTPUT_BUF_SIZE];
    	char *record_file;
 	char *new_record_file;
+	int input_size;
+	int num_of_inputs;
+	int i;
 
 	if(argc != 4) {
 		fprintf(stderr, "USAGE: %s [OPTION] [RECORD_FILE] [NEW_RECORD_FILE]\n", argv[0]);
@@ -39,19 +42,25 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
+		fseek(inputfp, 0, SEEK_END);
+		input_size = ftell(inputfp);
+		num_of_inputs = (input_size - HEADER_SIZE) / INPUT_BUF_SIZE;
+
+		for(i = 0; i < num_of_inputs; i++) {
+			fseek(inputfp, HEADER_SIZE + i * INPUT_BUF_SIZE, SEEK_SET);
+			makeRuns(inputfp, inputbuf);
+		}
+
+		fclose(inputfp);
+
 		if((outputfp = fopen(new_record_file, "w")) == NULL) {
 			fprintf(stderr, "open error for %s\n", new_record_file);
 			exit(1);
 		}
-		
-		fseek(inputfp, HEADER_SIZE, SEEK_SET);
-		makeRuns(inputfp, inputbuf);
-		fclose(inputfp);
+
 		fclose(outputfp);
 	}
-	
 	return 1;
-		
 }
 
 void makeRuns(FILE *inputfp, char *inputbuf)
@@ -153,7 +162,7 @@ void internalsort(char *inputbuf, int n)
 
 void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf)
 {
-
+	
 }
 
 void pack(char *recordbuf, const STUDENT *s)
@@ -208,7 +217,7 @@ void unpack(const char *recordbuf, STUDENT *s)
 
 void readChunk(FILE *runfp, char *inputbuf, int chunkid)
 {
-	
+		
 }
 
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n)
