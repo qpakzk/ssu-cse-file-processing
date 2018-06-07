@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "student.h"
 
 void readHeader(FILE *fp, char *headerbuf);
@@ -13,7 +14,7 @@ void pack(char *recordbuf, const STUDENT *s);
 void unpack(const char *recordbuf, STUDENT *s);
 void readChunk(FILE *runfp, char *inputbuf, int chunkid);
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n);
-
+void removeAllRuns();
 void print_inputbuf(char *inputbuf);
 void print_records(STUDENT *s, int n);
 
@@ -65,6 +66,7 @@ int main(int argc, char *argv[])
 		kwaymerge(outputfp, inputbuf, outputbuf);
 		fclose(outputfp);*/
 	}
+	removeAllRuns();
 	return 1;
 }
 
@@ -235,6 +237,18 @@ void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n)
 			
 }
 
+void removeAllRuns() {
+	int i;
+	char run_file[RUN_NAME_SIZE];
+
+	for (i = 0; i < run_count; i++) {
+		snprintf(run_file, RUN_NAME_SIZE, "run%d.dat", i);
+		if (unlink(run_file) < 0) {
+			fprintf(stderr, "unlink error for %s\n", run_file);
+			exit(1);
+		}
+	}
+}
 void print_inputbuf(char *inputbuf) {
 	int i;
 	for(i = 0; i < INPUT_BUF_SIZE; i++)
