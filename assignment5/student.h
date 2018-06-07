@@ -13,7 +13,6 @@
 #define EMAIL_SIZE 26
 
 #define RUN_NAME_SIZE 10000
-#define RUN_NUM_SIZE 1000
 
 typedef struct _STUDENT
 {
