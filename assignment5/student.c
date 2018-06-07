@@ -8,6 +8,9 @@
 
 void readHeader(FILE *fp, char *headerbuf);
 void makeRuns(FILE *inputfp, char *inputbuf);
+void parse_inputbuf(char *inputbuf, STUDENT *s, int n);
+void merge_inputbuf(char *inputbuf, STUDENT *s, int n);
+int compare_keyval(const void *st1, const void *st2);
 void internalsort(char *inputbuf, int n);
 void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf);
 void pack(char *recordbuf, const STUDENT *s);
