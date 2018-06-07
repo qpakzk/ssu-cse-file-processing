@@ -20,8 +20,7 @@ void print_records(STUDENT *s, int n);
 
 int run_count = 0;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	FILE *inputfp, *outputfp;
 	char headerbuf[HEADER_SIZE];
 	int num_of_records;
@@ -75,8 +74,7 @@ void readHeader(FILE *fp, char *headerbuf) {
 	fread(headerbuf, sizeof(char), HEADER_SIZE, fp);
 }
 
-void makeRuns(FILE *inputfp, char *inputbuf)
-{
+void makeRuns(FILE *inputfp, char *inputbuf) {
 	char run_file[RUN_NAME_SIZE];
 	FILE *runfp;
 	int record_count = 0;
@@ -147,8 +145,7 @@ int compare_keyval(const void *st1, const void *st2) {
 	return -1;
 }
 
-void internalsort(char *inputbuf, int n)
-{
+void internalsort(char *inputbuf, int n) {
 	STUDENT st[n];
 	parse_inputbuf(inputbuf, st, n);
 
@@ -169,13 +166,11 @@ void internalsort(char *inputbuf, int n)
 #endif
 }
 
-void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf)
-{
+void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 
 }
 
-void pack(char *recordbuf, const STUDENT *s)
-{
+void pack(char *recordbuf, const STUDENT *s) {
 	memset(recordbuf, 0x00, RECORD_SIZE);
 	memcpy(recordbuf, s->id, ID_SIZE);
 	strncat(recordbuf, "#", 1);
@@ -193,8 +188,7 @@ void pack(char *recordbuf, const STUDENT *s)
 	strncat(recordbuf, "#", 1);		
 }
 
-void unpack(const char *recordbuf, STUDENT *s)
-{
+void unpack(const char *recordbuf, STUDENT *s) {
 	char tmpbuf[RECORD_SIZE];
 	char *token;
 	
@@ -224,16 +218,14 @@ void unpack(const char *recordbuf, STUDENT *s)
 	memcpy(s->email, token, EMAIL_SIZE);
 }
 
-void readChunk(FILE *runfp, char *inputbuf, int chunkid)
-{
+void readChunk(FILE *runfp, char *inputbuf, int chunkid) {
 	int records_per_chunk = RECORDS_NUM_INPUTBUF / run_count;
 	int input_index = chunkid * records_per_chunk * RECORD_SIZE;
 	int chunk_size = records_per_chunk * RECORD_SIZE;
 	fread(&inputbuf[input_index], sizeof(char), chunk_size, runfp);
 }
 
-void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n)
-{
+void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n) {
 			
 }
 
