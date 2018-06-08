@@ -9,14 +9,10 @@
 
 typedef struct _RUN {
 	FILE *runfp;
-	//for run
 	int chunkid;
 	int num_of_records_in_run;
-	bool end_run;
-	//for inputbuf
 	int index;
 	int num_of_records_in_buf;
-	bool end_chunk;
 } RUN;
 
 void readHeader(FILE *fp, char *headerbuf);
@@ -39,6 +35,7 @@ void print_records(STUDENT *s, int n);
 
 int run_count;
 int chunk_size;
+int total_records;
 
 int main(int argc, char *argv[]) {
 	FILE *inputfp, *outputfp;
@@ -74,7 +71,7 @@ int main(int argc, char *argv[]) {
 			fseek(inputfp, HEADER_SIZE + i * INPUT_BUF_SIZE, SEEK_SET);
 			makeRuns(inputfp, inputbuf);
 		}
-
+		total_records = num_of_records;
 		fclose(inputfp);
 
 		if((outputfp = fopen(new_record_file, "r")) == NULL) {
@@ -91,7 +88,7 @@ int main(int argc, char *argv[]) {
 		kwaymerge(outputfp, inputbuf, outputbuf);
 		fclose(outputfp);
 	}
-	//removeAllRuns();
+	removeAllRuns();
 	return 1;
 }
 
@@ -196,10 +193,15 @@ int find_keyval(char *inputbuf, int index) {
 	char recordbuf[RECORD_SIZE];
 	char *token;
 	int keyval;
-
-	memcpy(recordbuf, inputbuf + index * RECORD_SIZE, RECORD_SIZE);
+	int i;
+	for(i = 0; i < RECORD_SIZE; i++) {
+		recordbuf[i] = inputbuf[index * RECORD_SIZE + i];
+		//printf("%c", recordbuf[i]);
+	}
+	//printf("\n");
 	token = strtok(recordbuf, "#");
-	if(!token)
+	//printf("token = %s\n", token);
+	if(token == NULL)
 		return -1;
 	keyval = atoi(token);
 	return keyval;
@@ -262,84 +264,61 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 		exit(1);
 	}
 	initialize_run(run_file);
-
 	memset(inputbuf, 0x00, INPUT_BUF_SIZE);
 	memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
 	initialize_output(outputfp);
-
-	for (i = 0; i < run_count; i++) {
+	for (i = 0; i < run_count; i++)
 		readChunk(run_file[i].runfp, &inputbuf[i * chunk_size], run_file[i].chunkid++);
-		if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run)
-			run_file[lowest_run].end_run = true;
-	}
-
+	
+	int count = 0;
 	while(1) {
 		run_num = 0;
 		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
 		lowest_run = run_num;
 		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
-		for (i = 0; i < run_count; i++) {
-			if (run_file[i].end_run || i == run_num || inputbuf[i * chunk_size] == 0)
+		if(lowest_key == -1)
+			break;
+
+		for (i = run_num + 1; i < run_count; i++) {
+			if(inputbuf[i * chunk_size] == 0)
 				continue;
+
 			candidate_key = find_keyval(&inputbuf[i * chunk_size], run_file[i].index);
+			if(candidate_key == -1)
+				break;
 			if(lowest_key > candidate_key) {
 				lowest_key = candidate_key;
 				lowest_run = i;
 			}
 		}
-		for(i = 0; i < RECORD_SIZE; i++) {
-			outputbuf[output_index] = inputbuf[lowest_run * chunk_size + run_file[lowest_run].index * RECORD_SIZE + i];
-			output_index++;
-		}
 
-		if(output_index >= OUTPUT_BUF_SIZE) {
-			printf("output_index = %d\n", output_index);
-			printf("output >>\n");
-			for(i = 0; i < OUTPUT_BUF_SIZE; i++) {
-				if(i % RECORD_SIZE == 0)
-					printf("\n");
-				printf("%c", outputbuf[i]);
-			}
-			printf("\n");
+		for(i = 0; i < RECORD_SIZE; i++) {
+			outputbuf[output_index++] = inputbuf[lowest_run * chunk_size + run_file[lowest_run].index * RECORD_SIZE + i];
+		}
+		count++;
+		if(output_index >= OUTPUT_BUF_SIZE || count == total_records) {
 			writeOutputbuf(outputfp, outputbuf, output_index);
 			memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
 			output_index = 0;
 		}
 
 		run_file[lowest_run].index++;
-		if(run_file[lowest_run].index >= run_file[lowest_run].num_of_records_in_buf)
-			run_file[lowest_run].end_chunk = true;
-
-		if (run_file[lowest_run].end_chunk) {
+		if(run_file[lowest_run].index >= run_file[lowest_run].num_of_records_in_buf) {
 			run_file[lowest_run].index = 0;
-			run_file[lowest_run].end_chunk = false;
 			if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run) {
-				run_file[lowest_run].end_run = true;
-				for (i = lowest_run * chunk_size; i < chunk_size; i++)
-					inputbuf[i] = 0;
-				
-				is_sorted = true;
-				for (i = 0; i < run_count; i++) {
-					if (run_file[i].end_run == false) {
-						is_sorted = false;
-						break;
-					}
-				}
-				
-				if (is_sorted) {
-					memset(inputbuf, 0x00, INPUT_BUF_SIZE);
+				for (i = 0; i < chunk_size; i++)
+					inputbuf[lowest_run * chunk_size + i] = 0;
+
+				if (count >= total_records) {
 					writeOutputbuf(outputfp, outputbuf, output_index);
 					memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
 					output_index = 0;
 					break;
 				}
 			}
-			else {
+			else
 				readChunk(run_file[lowest_run].runfp, &inputbuf[lowest_run * chunk_size], run_file[lowest_run].chunkid++);
-				if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run)
-					run_file[lowest_run].end_run = true;
-			}
 		}
 	}
 	
@@ -396,11 +375,22 @@ void unpack(const char *recordbuf, STUDENT *s) {
 }
 
 void readChunk(FILE *runfp, char *inputbuf, int chunkid) {
-	int num_of_records;
+	int num_of_records = chunk_size / RECORD_SIZE;
+	int records_size_of_chunk = num_of_records * RECORD_SIZE;
+	int run_size;
+	int i;
 
-	num_of_records = chunk_size / RECORD_SIZE;
-	fseek(runfp, chunkid * num_of_records * RECORD_SIZE, SEEK_SET);
-	fread(inputbuf, sizeof(char), num_of_records * RECORD_SIZE, runfp);
+	for(i = 0; i < chunk_size; i++)
+		inputbuf[i] = 0;
+	
+	fseek(runfp, 0, SEEK_END);
+	run_size = ftell(runfp);
+
+	fseek(runfp, chunkid * records_size_of_chunk, SEEK_SET);
+	if(run_size - chunkid * records_size_of_chunk < records_size_of_chunk)
+		fread(inputbuf, sizeof(char), run_size - chunkid * records_size_of_chunk, runfp);
+	else
+		fread(inputbuf, sizeof(char), records_size_of_chunk, runfp);
 }
 
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n) {
