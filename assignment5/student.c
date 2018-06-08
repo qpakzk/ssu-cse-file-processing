@@ -197,7 +197,6 @@ int find_keyval(char *inputbuf, int index) {
 	if(!token)
 		return -1;
 	keyval = atoi(token);
-	printf("keyval = %d\n", keyval);
 	return keyval;
 }
 
@@ -246,6 +245,7 @@ void write_to_output(FILE *outputfp, char *inputbuf) {
 	fseek(outputfp, 0, SEEK_SET);
 	fwrite(headerbuf, sizeof(char), HEADER_SIZE, outputfp);
 }
+
 void initialize_run(RUN *run_file) {
 	int i;
 	char run_name[RUN_NAME_SIZE];
@@ -292,32 +292,43 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 	memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
 	initialize_output(outputfp);
 
-	for (i = 0; i < run_count; i++)
+	for (i = 0; i < run_count; i++) {
 		readChunk(run_file[i].runfp, &inputbuf[i * chunk_size], run_file[i].chunkid++);
+		if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run)
+			run_file[lowest_run].end_run = true;
+	}
 
-	run_num = 0;
 	while(1) {
-		while(run_file[run_num].end_run)
+		run_num = 0;
+		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
-
+		if(run_num >= run_count)
+			break;
 		lowest_run = run_num;
-		lowest_key = find_keyval(inputbuf, run_file[run_num].index);
-		printf("lowest_run = %d, lowest_key = %d\n", lowest_run, lowest_key);
-		for (i = run_num + 1; i < run_count; i++) {
-			if(run_file[i].end_run)
+
+		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
+		if(lowest_key == -1)
+			break;
+	
+		for (i = 0; i < run_count; i++) {
+			if (run_file[i].end_run || i == run_num || inputbuf[i * chunk_size] == 0)
 				continue;
 			candidate_key = find_keyval(&inputbuf[i * chunk_size], run_file[i].index);
 			if(candidate_key == -1)
-				break;
+				continue;
 			if(lowest_key > candidate_key) {
 				lowest_key = candidate_key;
 				lowest_run = i;
 			}
 		}
-		printf("lowest_run = %d, lowest_key = %d, candidate_key = %d\n", lowest_run, lowest_key, lowest_key);
-		printf("----------------------------------------------------\n\n");
+
+		printf("store to output >> ");
+		for(i = 0; i < chunk_size; i++)
+			fprintf(outputfp, "%c", inputbuf[lowest_run * chunk_size + i]);
+		printf("\n");
+
 		//write_to_output(outputfp, &inputbuf[lowest_run * chunk_size]);
-		
+
 		run_file[lowest_run].index++;
 		if(run_file[lowest_run].index >= run_file[lowest_run].num_of_records_in_buf)
 			run_file[lowest_run].end_chunk = true;
@@ -343,11 +354,14 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 					break;
 				}
 			}
-			else
+			else {
 				readChunk(run_file[lowest_run].runfp, &inputbuf[lowest_run * chunk_size], run_file[lowest_run].chunkid++);
+				if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run)
+					run_file[lowest_run].end_run = true;
+			}
 		}
 	}
-
+	
 	for (i = 0; i < run_count; i++)
 		fclose(run_file[i].runfp);
 }
@@ -406,10 +420,12 @@ void readChunk(FILE *runfp, char *inputbuf, int chunkid) {
 	num_of_records = chunk_size / RECORD_SIZE;
 	fseek(runfp, chunkid * num_of_records * RECORD_SIZE, SEEK_SET);
 	fread(inputbuf, sizeof(char), num_of_records * RECORD_SIZE, runfp);
+	/*
 	printf("INNER : ");
 	for (int i = 0; i < num_of_records * RECORD_SIZE; i++)
 		printf("%c", inputbuf[i]);
 	printf("\n");
+	*/
 }
 
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n) {
