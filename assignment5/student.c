@@ -13,6 +13,7 @@ typedef struct _RUN {
 	int num_of_records_in_run;
 	int index;
 	int num_of_records_in_buf;
+	bool end;
 } RUN;
 
 void readHeader(FILE *fp, char *headerbuf);
@@ -246,6 +247,14 @@ void initialize_run(RUN *run_file) {
 		run_file[i].num_of_records_in_buf = chunk_size / RECORD_SIZE;
 }
 
+bool is_finished(RUN *run_file) {
+	int i;
+	for(i = 0; i < run_count; i++) {
+		if(!run_file[i].end)
+			return false;
+	}
+	return true;
+}
 void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 	int i;
 	int run_num;
@@ -254,7 +263,6 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 	int lowest_key, candidate_key;
 	bool is_sorted;
 	int output_index = 0;
-
 	chunk_size = INPUT_BUF_SIZE / run_count;
 	if (chunk_size < RECORD_SIZE) {
 		fprintf(stderr, "Chunk size s smaller than record size.\n");
@@ -266,36 +274,26 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 	initialize_output(outputfp);
 	for (i = 0; i < run_count; i++)
 		readChunk(run_file[i].runfp, &inputbuf[i * chunk_size], run_file[i].chunkid++);
-	
-	int count = 0;
+
 	while(1) {
 		run_num = 0;
 		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
 		lowest_run = run_num;
-
 		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
-		if(lowest_key == -1)
-			break;
 
 		for (i = run_num + 1; i < run_count; i++) {
 			if(inputbuf[i * chunk_size] == 0)
 				continue;
-
 			candidate_key = find_keyval(&inputbuf[i * chunk_size], run_file[i].index);
-			if(candidate_key == -1)
-				break;
 			if(lowest_key > candidate_key) {
 				lowest_key = candidate_key;
 				lowest_run = i;
 			}
 		}
-
-		for(i = 0; i < RECORD_SIZE; i++) {
+		for(i = 0; i < RECORD_SIZE; i++)
 			outputbuf[output_index++] = inputbuf[lowest_run * chunk_size + run_file[lowest_run].index * RECORD_SIZE + i];
-		}
-		count++;
-		if(output_index >= OUTPUT_BUF_SIZE || count == total_records) {
+		if(output_index >= OUTPUT_BUF_SIZE) {
 			writeOutputbuf(outputfp, outputbuf, output_index);
 			memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
 			output_index = 0;
@@ -303,20 +301,28 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 
 		run_file[lowest_run].index++;
 		if(run_file[lowest_run].index >= run_file[lowest_run].num_of_records_in_buf) {
-			run_file[lowest_run].index = 0;
 			if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf >= run_file[lowest_run].num_of_records_in_run) {
+				run_file[lowest_run].end = true;
 				for (i = 0; i < chunk_size; i++)
 					inputbuf[lowest_run * chunk_size + i] = 0;
-
-				if (count >= total_records) {
-					writeOutputbuf(outputfp, outputbuf, output_index);
-					memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
-					output_index = 0;
-					break;
-				}
 			}
-			else
+			else {
+				run_file[lowest_run].index = 0;
 				readChunk(run_file[lowest_run].runfp, &inputbuf[lowest_run * chunk_size], run_file[lowest_run].chunkid++);
+			}
+		} 
+		else if(inputbuf[lowest_run * chunk_size + RECORD_SIZE * run_file[lowest_run].index] == 0) {
+			if (run_file[lowest_run].chunkid * run_file[lowest_run].num_of_records_in_buf + RECORD_SIZE * run_file[lowest_run].index 
+			>= run_file[lowest_run].num_of_records_in_run) {
+				run_file[lowest_run].end = true;
+				for (i = 0; i < chunk_size; i++)
+					inputbuf[lowest_run * chunk_size + i] = 0;
+			}
+		}
+
+		if(is_finished(run_file)) {
+			writeOutputbuf(outputfp, outputbuf, output_index);
+			break;
 		}
 	}
 	
