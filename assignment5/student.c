@@ -27,7 +27,6 @@ int compare_keyval(const void *st1, const void *st2);
 void internalsort(char *inputbuf, int n);
 int find_keyval(char *inputbuf, int index);
 void initialize_output(FILE *outputfp);
-void write_to_output(FILE *outputfp, char *inputbuf);
 void initialize_run(RUN *run_file);
 void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf);
 void pack(char *recordbuf, const STUDENT *s);
@@ -78,6 +77,12 @@ int main(int argc, char *argv[]) {
 
 		fclose(inputfp);
 
+		if((outputfp = fopen(new_record_file, "r")) == NULL) {
+			outputfp = fopen(new_record_file, "w");
+		}
+
+		fclose(outputfp);
+		
 		if((outputfp = fopen(new_record_file, "r+")) == NULL) {
 			fprintf(stderr, "open error for %s\n", new_record_file);
 			exit(1);
@@ -215,37 +220,6 @@ void initialize_output(FILE *outputfp) {
 	fwrite(headerbuf, sizeof(char), HEADER_SIZE, outputfp);
 }
 
-void write_to_output(FILE *outputfp, char *inputbuf) {
-	char recordbuf[RECORD_SIZE];
-	char headerbuf[HEADER_SIZE];
-	short num_of_records;
-	short del_rrn;
-	int i;
-
-	memset(headerbuf, 0x00, HEADER_SIZE);
-	fseek(outputfp, 0, SEEK_SET);
-	fread(headerbuf, sizeof(char), HEADER_SIZE, outputfp);
-
-	num_of_records = ((headerbuf[0] << 8) & 0xFF00) + (headerbuf[1] & 0xFF);
-	del_rrn = ((headerbuf[2] << 8) & 0xFF00) + (headerbuf[3] & 0xFF);
-
-	memset(recordbuf, 0x00, RECORD_SIZE);
-	memcpy(recordbuf, inputbuf, RECORD_SIZE);
-
-	fseek(outputfp, HEADER_SIZE + num_of_records * RECORD_SIZE, SEEK_SET);
-	fwrite(recordbuf, sizeof(char), RECORD_SIZE, outputfp);
-
-	num_of_records++;
-
-	headerbuf[0] = (char)((num_of_records & 0xFF00) >> 8);
-	headerbuf[1] = (char)(num_of_records & 0xFF);
-	headerbuf[2] = (char)((del_rrn & 0xFF00) >> 8);
-	headerbuf[3] = (char)(del_rrn & 0xFF);
-
-	fseek(outputfp, 0, SEEK_SET);
-	fwrite(headerbuf, sizeof(char), HEADER_SIZE, outputfp);
-}
-
 void initialize_run(RUN *run_file) {
 	int i;
 	char run_name[RUN_NAME_SIZE];
@@ -280,6 +254,7 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 	int lowest_run;
 	int lowest_key, candidate_key;
 	bool is_sorted;
+	int output_index = 0;
 
 	chunk_size = INPUT_BUF_SIZE / run_count;
 	if (chunk_size < RECORD_SIZE) {
@@ -302,14 +277,15 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 		run_num = 0;
 		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
+		/*
 		if(run_num >= run_count)
-			break;
+			break;*/
 		lowest_run = run_num;
 
 		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
-		if(lowest_key == -1)
+		/*if(lowest_key == -1)
 			break;
-	
+		*/
 		for (i = 0; i < run_count; i++) {
 			if (run_file[i].end_run || i == run_num || inputbuf[i * chunk_size] == 0)
 				continue;
@@ -322,12 +298,24 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 			}
 		}
 
-		printf("store to output >> ");
-		for(i = 0; i < chunk_size; i++)
-			fprintf(outputfp, "%c", inputbuf[lowest_run * chunk_size + i]);
-		printf("\n");
+		for(i = 0; i < RECORD_SIZE; i++) {
+			outputbuf[output_index] = inputbuf[lowest_run * chunk_size + run_file[lowest_run].index * RECORD_SIZE + i];
+			output_index++;
+		}
 
-		//write_to_output(outputfp, &inputbuf[lowest_run * chunk_size]);
+		if(output_index >= OUTPUT_BUF_SIZE) {
+			printf("output_index = %d\n", output_index);
+			printf("output >>\n");
+			for(i = 0; i < OUTPUT_BUF_SIZE; i++) {
+				if(i % RECORD_SIZE == 0)
+					printf("\n");
+				printf("%c", outputbuf[i]);
+			}
+			printf("\n");
+			writeOutputbuf(outputfp, outputbuf, output_index);
+			memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
+			output_index = 0;
+		}
 
 		run_file[lowest_run].index++;
 		if(run_file[lowest_run].index >= run_file[lowest_run].num_of_records_in_buf)
@@ -351,6 +339,9 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 				
 				if (is_sorted) {
 					memset(inputbuf, 0x00, INPUT_BUF_SIZE);
+					writeOutputbuf(outputfp, outputbuf, output_index);
+					memset(outputbuf, 0x00, OUTPUT_BUF_SIZE);
+					output_index = 0;
 					break;
 				}
 			}
@@ -420,16 +411,34 @@ void readChunk(FILE *runfp, char *inputbuf, int chunkid) {
 	num_of_records = chunk_size / RECORD_SIZE;
 	fseek(runfp, chunkid * num_of_records * RECORD_SIZE, SEEK_SET);
 	fread(inputbuf, sizeof(char), num_of_records * RECORD_SIZE, runfp);
-	/*
-	printf("INNER : ");
-	for (int i = 0; i < num_of_records * RECORD_SIZE; i++)
-		printf("%c", inputbuf[i]);
-	printf("\n");
-	*/
 }
 
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n) {
-			
+	char headerbuf[HEADER_SIZE];
+	short num_of_records;
+	short del_rrn;
+	int i;
+
+	memset(headerbuf, 0x00, HEADER_SIZE);
+	fseek(outputfp, 0, SEEK_SET);
+	fread(headerbuf, sizeof(char), HEADER_SIZE, outputfp);
+
+	num_of_records = ((headerbuf[0] << 8) & 0xFF00) + (headerbuf[1] & 0xFF);
+	del_rrn = ((headerbuf[2] << 8) & 0xFF00) + (headerbuf[3] & 0xFF);
+
+	fseek(outputfp, HEADER_SIZE + num_of_records * RECORD_SIZE, SEEK_SET);
+	fwrite(outputbuf, sizeof(char), n, outputfp);
+
+	num_of_records += (n / RECORD_SIZE);
+
+	memset(headerbuf, 0x00, HEADER_SIZE);
+	headerbuf[0] = (char)((num_of_records & 0xFF00) >> 8);
+	headerbuf[1] = (char)(num_of_records & 0xFF);
+	headerbuf[2] = (char)((del_rrn & 0xFF00) >> 8);
+	headerbuf[3] = (char)(del_rrn & 0xFF);
+
+	fseek(outputfp, 0, SEEK_SET);
+	fwrite(headerbuf, sizeof(char), HEADER_SIZE, outputfp);		
 }
 
 void removeAllRuns() {
