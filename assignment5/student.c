@@ -194,15 +194,12 @@ int find_keyval(char *inputbuf, int index) {
 	char *token;
 	int keyval;
 	int i;
-	for(i = 0; i < RECORD_SIZE; i++) {
+	for(i = 0; i < RECORD_SIZE; i++)
 		recordbuf[i] = inputbuf[index * RECORD_SIZE + i];
-		//printf("%c", recordbuf[i]);
-	}
-	//printf("\n");
 	token = strtok(recordbuf, "#");
-	//printf("token = %s\n", token);
 	if(token == NULL)
 		return -1;
+
 	keyval = atoi(token);
 	return keyval;
 }
@@ -276,6 +273,7 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
 		lowest_run = run_num;
+
 		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
 		if(lowest_key == -1)
 			break;
