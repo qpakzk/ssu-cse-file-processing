@@ -1,5 +1,3 @@
-//#define PRINT_FOR_DEBUG
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,12 +29,9 @@ void unpack(const char *recordbuf, STUDENT *s);
 void readChunk(FILE *runfp, char *inputbuf, int chunkid);
 void writeOutputbuf(FILE *outputfp, const char *outputbuf, int n);
 void removeAllRuns();
-void print_inputbuf(char *inputbuf);
-void print_records(STUDENT *s, int n);
 
 int run_count;
 int chunk_size;
-int total_records;
 
 int main(int argc, char *argv[]) {
 	FILE *inputfp, *outputfp;
@@ -72,7 +67,6 @@ int main(int argc, char *argv[]) {
 			fseek(inputfp, HEADER_SIZE + i * INPUT_BUF_SIZE, SEEK_SET);
 			makeRuns(inputfp, inputbuf);
 		}
-		total_records = num_of_records;
 		fclose(inputfp);
 
 		if((outputfp = fopen(new_record_file, "r")) == NULL) {
@@ -106,10 +100,6 @@ void makeRuns(FILE *inputfp, char *inputbuf) {
 
 	memset(inputbuf, 0x00, INPUT_BUF_SIZE);
 	fread(inputbuf, sizeof(char), INPUT_BUF_SIZE, inputfp);	
-
-#ifdef PRINT_FOR_DEBUG
-	print_inputbuf(inputbuf);
-#endif
 
 	memset(run_file, 0x00, RUN_NAME_SIZE);
 	snprintf(run_file, RUN_NAME_SIZE, "run%d.dat", run_count++);
@@ -172,22 +162,8 @@ int compare_keyval(const void *st1, const void *st2) {
 void internalsort(char *inputbuf, int n) {
 	STUDENT st[n];
 	parse_inputbuf(inputbuf, st, n);
-
-#ifdef PRINT_FOR_DEBUG
-	printf("---- Before ----\n");
-	print_records(st, n);
-#endif
-
 	qsort(st, n, sizeof(STUDENT), compare_keyval);
-
-#ifdef PRINT_FOR_DEBUG
-	printf("---- After ----\n");
-	print_records(st, n);
-#endif
 	merge_inputbuf(inputbuf, st, n);
-#ifdef PRINT_FOR_DEBUG
-	print_inputbuf(inputbuf); 	
-#endif
 }
 
 int find_keyval(char *inputbuf, int index) {
@@ -435,27 +411,5 @@ void removeAllRuns() {
 			fprintf(stderr, "unlink error for %s\n", run_file);
 			exit(1);
 		}
-	}
-}
-
-void print_inputbuf(char *inputbuf) {
-	int i;
-	for(i = 0; i < INPUT_BUF_SIZE; i++)
-		printf("%c", inputbuf[i]);
-	printf("\n");
-}
-
-void print_records(STUDENT *s, int n) {
-	int i;
-	for(i = 0; i < n; i++) {
-		printf(">> STUDENT %d <<\n", i);
-		printf("ID = %s\n", s[i].id);
-		printf("NAME = %s\n", s[i].name);
-		printf("DEPT = %s\n", s[i].dept);
-		printf("YEAR = %s\n", s[i].year);
-		printf("ADDR = %s\n", s[i].addr);
-		printf("PHONE = %s\n", s[i].phone);
-		printf("EMAIL = %s\n", s[i].email);
-		printf(">>END %d <<\n\n", i);
 	}
 }
