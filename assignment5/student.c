@@ -277,27 +277,17 @@ void kwaymerge(FILE *outputfp, char *inputbuf, char *outputbuf) {
 		run_num = 0;
 		while(inputbuf[run_num * chunk_size] == 0)
 			run_num++;
-		/*
-		if(run_num >= run_count)
-			break;*/
 		lowest_run = run_num;
-
 		lowest_key = find_keyval(&inputbuf[lowest_run * chunk_size], run_file[lowest_run].index);
-		/*if(lowest_key == -1)
-			break;
-		*/
 		for (i = 0; i < run_count; i++) {
 			if (run_file[i].end_run || i == run_num || inputbuf[i * chunk_size] == 0)
 				continue;
 			candidate_key = find_keyval(&inputbuf[i * chunk_size], run_file[i].index);
-			if(candidate_key == -1)
-				continue;
 			if(lowest_key > candidate_key) {
 				lowest_key = candidate_key;
 				lowest_run = i;
 			}
 		}
-
 		for(i = 0; i < RECORD_SIZE; i++) {
 			outputbuf[output_index] = inputbuf[lowest_run * chunk_size + run_file[lowest_run].index * RECORD_SIZE + i];
 			output_index++;
